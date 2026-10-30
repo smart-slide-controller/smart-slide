@@ -5,11 +5,16 @@ import math
 
 @dataclass
 class GestureEvent:
+    """A simple action from the hand gesture system."""
     action: str
     label: str
 
 class GestureEngine:
-    """Swipe classifier with distance threshold, cooldown, and one event per swipe."""
+    """Detect hand gestures and turn them into app actions.
+
+    This class watches the hand position and gesture label.
+    It decides when the user swipes, holds a hand, or exits the presentation.
+    """
     def __init__(self, swipe_threshold_px=90, cooldown_seconds=0.8,
                  activation_hold_seconds=0.5, fist_hold_seconds=0.8,
                  gesture_hold_seconds=0.6):
@@ -27,6 +32,7 @@ class GestureEngine:
         self._swipe_latched = False
 
     def reset(self):
+        """Clear saved hand state so a new gesture can start fresh."""
         self.history.clear()
         self._hold_name = None
         self._hold_start = None
@@ -34,13 +40,17 @@ class GestureEngine:
         self._swipe_latched = False
 
     def update(self, center_x, center_y, hand_label, now=None):
+        """Check the latest hand data and return one or more app events."""
         now = time.monotonic() if now is None else now
         events = []
         if center_x is None:
             self.reset()
             return events
 
+        # Save hand movement history so we can detect a swipe.
         self.history.append((now, int(center_x), int(center_y)))
+
+        # Hold actions: open palm starts control, fist saves slide, etc.
         if hand_label in ("OPEN_PALM", "FIST", "THREE_FINGERS", "PEACE"):
             if self._hold_name != hand_label:
                 self._hold_name, self._hold_start = hand_label, now
@@ -85,6 +95,7 @@ class GestureEngine:
             self._hold_name, self._hold_start = None, None
             self._hold_fired = False
 
+        # These gestures are not used for swipe navigation.
         if hand_label in ("THREE_FINGERS", "PEACE"):
             return events
 
@@ -92,6 +103,8 @@ class GestureEngine:
             return events
         old_t, old_x, old_y = self.history[0]
         dx = self.history[-1][1] - old_x
+
+        # Only act when gesture mode is active and the swipe has not been used yet.
         if not self.gesture_active or self._swipe_latched:
             if abs(dx) < self.swipe_threshold_px * 0.35:
                 self._swipe_latched = False
@@ -111,7 +124,11 @@ class GestureEngine:
         return events
 
 def classify_hand(landmarks, image_width, image_height):
-    """Classify hand poses with distances that do not depend on image orientation."""
+    """Look at finger positions and decide what hand pose is shown.
+
+    The math compares finger tip distance to finger base distance.
+    This helps the app tell apart a fist, open palm, peace sign, and other poses.
+    """
     pts = [(lm.x * image_width, lm.y * image_height) for lm in landmarks]
     finger_joints = [(5, 6, 8), (9, 10, 12), (13, 14, 16), (17, 18, 20)]
     extended = [

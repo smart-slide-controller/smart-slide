@@ -14,11 +14,20 @@ from src.presentation_view import PresentationView
 from src.powerpoint_controller import PowerPointController
 
 class SmartPresentationApp:
+    """Main app window for the smart presentation controller.
+
+    This class builds the dashboard, loads a PDF or PowerPoint file,
+    connects to the camera, and handles gesture-based slide control.
+    """
+
     def __init__(self):
+        # Create the main window and set the app name.
         self.root = tk.Tk()
         self.root.title("Smart Presentation Controller")
         self.root.geometry("1100x760")
         self.root.minsize(900, 650)
+
+        # Load app settings and keep the current selected file.
         self.settings = Settings()
         self.selected_file = None
         self.pdf_path = None
@@ -29,14 +38,19 @@ class SmartPresentationApp:
         self.last_frame_photo = None
         self.last_gesture = "Waiting for hand"
         self.status = tk.StringVar(value="Ready — select a PowerPoint or PDF file.")
+
+        # Create the gesture engine that turns hand motion into slide actions.
         self.engine = GestureEngine(
             self.settings.swipe_threshold_px, self.settings.cooldown_seconds,
             self.settings.activation_hold_seconds, self.settings.fist_hold_seconds
         )
+
+        # Build the dashboard and connect close action.
         self._build_ui()
         self.root.protocol("WM_DELETE_WINDOW", self.close_app)
 
     def _build_ui(self):
+        """Create the dashboard layout and control buttons."""
         palette = {
             "background": "#080e1b",
             "surface": "#111b2d",
@@ -193,12 +207,14 @@ class SmartPresentationApp:
                  font=("Segoe UI", 9)).pack(anchor="w")
 
     def _button(self, parent, text, command, color):
+        """Create a styled button with the app's color theme."""
         return tk.Button(parent, text=text, command=command, bg=color, fg="white",
                          activebackground=color, activeforeground="white",
                          relief="flat", padx=13, pady=9, cursor="hand2",
                          font=("Segoe UI", 10, "bold"))
 
     def select_file(self):
+        """Open a file picker and validate the chosen presentation file."""
         path = filedialog.askopenfilename(
             title="Select a presentation",
             filetypes=[("PowerPoint and PDF", "*.pptx *.pdf"), ("PowerPoint", "*.pptx"), ("PDF", "*.pdf")]
@@ -222,6 +238,7 @@ class SmartPresentationApp:
             messagebox.showerror("Invalid presentation", str(exc))
 
     def remove_file(self):
+        """Clear the selected file and reset the dashboard view."""
         self.selected_file = self.pdf_path = None
         self.file_title.configure(text="No presentation selected")
         self.file_details.configure(text="PPTX and PDF files are supported")
@@ -231,6 +248,7 @@ class SmartPresentationApp:
         self.status.set("Presentation removed.")
 
     def start_presentation(self):
+        """Open the selected file and start the slideshow or PDF viewer."""
         if not self.selected_file:
             messagebox.showwarning("No file", "Please select a .pptx or .pdf file first.")
             return
@@ -242,6 +260,7 @@ class SmartPresentationApp:
         dashboard_hidden = False
         try:
             if is_powerpoint:
+                # Hide the dashboard when the PowerPoint slideshow starts.
                 self._show_presentation_only()
                 self.root.update_idletasks()
                 dashboard_hidden = True
@@ -253,6 +272,7 @@ class SmartPresentationApp:
                     raise
                 self.powerpoint_controller = controller
             else:
+                # Open the PDF viewer and count the pages.
                 pdf_path, count = load_pdf(self.selected_file)
                 self.pdf_path = str(pdf_path)
                 self.presentation = PresentationView(
@@ -285,14 +305,17 @@ class SmartPresentationApp:
             messagebox.showerror("Presentation error", f"Could not start presentation:\n{exc}")
 
     def _show_presentation_only(self):
+        """Hide the app dashboard while a presentation is running."""
         self.root.withdraw()
 
     def _show_dashboard(self):
+        """Show the app dashboard again after exiting a presentation."""
         self.root.deiconify()
         self.root.lift()
         self.root.focus_force()
 
     def start_camera(self):
+        """Start the camera worker if it is not already running."""
         if self.camera and self.camera.running:
             self.status.set("Camera is already running.")
             return
@@ -303,6 +326,7 @@ class SmartPresentationApp:
         self.camera.start()
 
     def stop_camera(self):
+        """Stop the webcam and clear the current gesture state."""
         if self.camera:
             self.camera.stop()
             self.camera = None
@@ -314,6 +338,7 @@ class SmartPresentationApp:
         self.status.set("Camera stopped. Gesture commands are disabled.")
 
     def _set_camera_status(self, state):
+        """Update the status badge for camera state."""
         styles = {
             "STARTING": ("● STARTING", "#3b2e18", "#fcd34d"),
             "RUNNING": ("● ON", "#123b35", "#6ee7b7"),
@@ -324,6 +349,7 @@ class SmartPresentationApp:
         self.camera_status.configure(text=text, bg=background, fg=foreground)
 
     def _update_status(self, status):
+        """Read camera status and update the app status UI."""
         self.status.set(status)
         normalized = status.lower()
         if normalized.startswith("error:"):
@@ -334,9 +360,11 @@ class SmartPresentationApp:
             self._set_camera_status("OFF")
 
     def _on_frame_threadsafe(self, frame, label):
+        """Send a new webcam frame to the UI thread for preview."""
         self.root.after(0, self._update_preview, frame, label)
 
     def _update_preview(self, frame, label):
+        """Convert the webcam frame to a Tkinter image and show it."""
         try:
             rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             image = Image.fromarray(rgb)
@@ -353,11 +381,13 @@ class SmartPresentationApp:
             pass
 
     def _on_gesture_threadsafe(self, center, label, width, height):
+        """Send the detected hand gesture to the gesture engine."""
         events = self.engine.update(center[0] if center else None, center[1] if center else None, label)
         for event in events:
             self.root.after(0, self._handle_gesture_event, event)
 
     def _handle_gesture_event(self, event):
+        """Handle a gesture event as a slide or app action."""
         self.status.set(event.label)
         if event.action == "ACTIVATE":
             if self.presentation or self.powerpoint_controller:
@@ -383,6 +413,7 @@ class SmartPresentationApp:
             self._save_powerpoint_slide_screenshot()
 
     def _save_powerpoint_slide_screenshot(self):
+        """Save the current slide as an image file when the user makes a screenshot gesture."""
         controller = self.powerpoint_controller
         if not controller:
             self.status.set("Slide screenshot is available only during a PowerPoint slideshow.")
@@ -410,9 +441,11 @@ class SmartPresentationApp:
             messagebox.showerror("Screenshot failed", f"Could not save the slide image:\n{exc}")
 
     def _on_status_threadsafe(self, status):
+        """Update the status label from the camera worker thread."""
         self.root.after(0, self._update_status, status)
 
     def _presentation_key(self, action):
+        """Handle keyboard or gesture actions for the current presentation."""
         if not self.presentation and not self.powerpoint_controller:
             return
         if action == "NEXT":
@@ -420,7 +453,7 @@ class SmartPresentationApp:
                 moved = (
                     self.powerpoint_controller.next_slide()
                     if self.powerpoint_controller
-                    else self.presentation.next()
+                    else self.presentation.next() if self.presentation is not None else False
                 )
             except Exception as exc:
                 self.exit_presentation()
@@ -433,7 +466,7 @@ class SmartPresentationApp:
                 moved = (
                     self.powerpoint_controller.previous_slide()
                     if self.powerpoint_controller
-                    else self.presentation.previous()
+                    else self.presentation.previous() if self.presentation is not None else False
                 )
             except Exception as exc:
                 self.exit_presentation()
@@ -450,11 +483,13 @@ class SmartPresentationApp:
             self.status.set("Swipe right-to-left: Next; left-to-right: Previous; P: Pause; Esc: Exit")
 
     def exit_presentation(self):
+        """Close the active presentation and return to the dashboard."""
         self._close_active_presentation()
         self.status.set("Returned to dashboard.")
         self._show_dashboard()
 
     def _close_active_presentation(self):
+        """Close the PDF or PowerPoint presentation safely."""
         if self._powerpoint_monitor_id is not None:
             try:
                 self.root.after_cancel(self._powerpoint_monitor_id)
@@ -469,18 +504,28 @@ class SmartPresentationApp:
             self.powerpoint_controller = None
 
     def _schedule_powerpoint_monitor(self):
+        """Start a timer to watch the PowerPoint slideshow state."""
         if self.powerpoint_controller and self._powerpoint_monitor_id is None:
             self._powerpoint_monitor_id = self.root.after(
                 500, self._check_powerpoint_slideshow
             )
 
     def _check_powerpoint_slideshow(self):
+        """Check whether the PowerPoint slideshow is still active."""
         self._powerpoint_monitor_id = None
         controller = self.powerpoint_controller
         if not controller:
             return
         try:
-            position = controller.slide_show.View.CurrentShowPosition
+            slide_show = getattr(controller, "slide_show", None)
+            if slide_show is None:
+                raise RuntimeError("PowerPoint slideshow is not available.")
+
+            view = getattr(slide_show, "View", None)
+            if view is None:
+                raise RuntimeError("PowerPoint slide view is not available.")
+
+            position = view.CurrentShowPosition
             if position < 1:
                 raise RuntimeError("PowerPoint slideshow is no longer active.")
         except Exception as exc:
@@ -491,6 +536,7 @@ class SmartPresentationApp:
         self._schedule_powerpoint_monitor()
 
     def open_settings(self):
+        """Open a small settings window to adjust camera and gesture values."""
         win = tk.Toplevel(self.root)
         win.title("Settings")
         win.configure(bg="#111b31")
@@ -536,6 +582,7 @@ class SmartPresentationApp:
         self._button(win, "Save Settings", save, "#059669").grid(row=len(fields)+1, column=0, columnspan=2, padx=12, pady=12, sticky="ew")
 
     def close_app(self):
+        """Close the camera and presentation before closing the whole app."""
         try:
             self.stop_camera()
         except Exception:
@@ -544,4 +591,5 @@ class SmartPresentationApp:
         self.root.destroy()
 
     def run(self):
+        """Start the Tkinter event loop."""
         self.root.mainloop()

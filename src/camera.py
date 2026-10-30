@@ -4,7 +4,10 @@ import time
 from src.gesture_engine import classify_hand
 
 class CameraWorker:
+    """Run the webcam in a background thread and detect hand gestures."""
+
     def __init__(self, settings, on_frame, on_gesture, on_status):
+        # Save the app settings and callback functions.
         self.settings = settings
         self.on_frame = on_frame
         self.on_gesture = on_gesture
@@ -15,9 +18,11 @@ class CameraWorker:
 
     @property
     def running(self):
+        """Return True when the webcam thread is alive."""
         return self._thread is not None and self._thread.is_alive()
 
     def start(self):
+        """Start the camera thread if it is not already running."""
         if self.running:
             return
         self._stop.clear()
@@ -25,6 +30,7 @@ class CameraWorker:
         self._thread.start()
 
     def stop(self):
+        """Stop the camera thread and free the webcam device."""
         self._stop.set()
         if self._cap is not None:
             try:
@@ -37,6 +43,7 @@ class CameraWorker:
         self.on_status("Camera stopped")
 
     def _run(self):
+        """Open the camera, watch for hands, and send frame + gesture updates."""
         cap = cv2.VideoCapture(self.settings.camera_index)
         self._cap = cap
         if not cap.isOpened():

@@ -6,16 +6,17 @@ import win32com.client
 
 
 class PowerPointController:
-    """Control a PowerPoint presentation using Microsoft PowerPoint COM."""
+    """Open a PowerPoint file and move through slides with a few simple actions."""
 
     def __init__(self):
+        # These hold the live PowerPoint COM objects.
         self.app = None
         self.presentation = None
         self.slide_show = None
         self._com_initialized = False
 
     def open(self, file_path: str) -> int:
-        """Open a PPTX file in PowerPoint Slide Show mode."""
+        """Open a .pptx file and start the slideshow mode."""
         if self._com_initialized or self.presentation is not None:
             raise RuntimeError(
                 "A presentation is already open in this controller."
@@ -62,7 +63,7 @@ class PowerPointController:
             raise
 
     def next_slide(self) -> bool:
-        """Move to the next slide if one exists."""
+        """Move to the next slide if the current slide is not the last one."""
         if self.slide_show is None or self.presentation is None:
             return False
 
@@ -75,7 +76,7 @@ class PowerPointController:
         return True
 
     def previous_slide(self) -> bool:
-        """Move to the previous slide if one exists."""
+        """Move to the previous slide if the current slide is not the first one."""
         if self.slide_show is None or self.presentation is None:
             return False
 
@@ -88,13 +89,13 @@ class PowerPointController:
         return True
 
     def current_slide_number(self) -> int:
-        """Return the slide number currently displayed by this slideshow."""
+        """Return the slide number currently shown in the slideshow."""
         if self.slide_show is None or self.presentation is None:
             raise RuntimeError("No PowerPoint slideshow is active.")
         return self.slide_show.View.CurrentShowPosition
 
     def export_current_slide(self, file_path: str) -> Path:
-        """Export the current PowerPoint slide as a PNG image."""
+        """Save the current slide as a PNG file to the chosen path."""
         if self.presentation is None:
             raise RuntimeError("No PowerPoint presentation is open.")
 
@@ -108,7 +109,7 @@ class PowerPointController:
         return path
 
     def close(self):
-        """Close this controller's presentation and its dedicated PowerPoint instance."""
+        """Close the active presentation and end the PowerPoint process."""
         try:
             if self.slide_show is not None:
                 self.slide_show.View.Exit()

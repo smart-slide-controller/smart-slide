@@ -2,6 +2,8 @@ from dataclasses import dataclass
 
 @dataclass
 class Settings:
+    """Store the app settings used by the camera and gesture system."""
+
     camera_index: int = 0
     camera_width: int = 640
     camera_height: int = 480

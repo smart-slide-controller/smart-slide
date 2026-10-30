@@ -6,10 +6,11 @@ SUPPORTED = {".pdf", ".pptx"}
 
 
 class PresentationLoadError(Exception):
-    """Raised when a presentation cannot be loaded by the application."""
+    """Raised when the app cannot open or use the selected presentation file."""
 
 
 def validate_presentation(path: str) -> Path:
+    """Check that the file exists, is a supported file type, and is not empty."""
     p = Path(path).expanduser().resolve()
     if not p.exists() or not p.is_file():
         raise PresentationLoadError("The selected file does not exist.")
@@ -21,7 +22,7 @@ def validate_presentation(path: str) -> Path:
 
 
 def load_pdf(path: str) -> tuple[Path, int]:
-    """Validate a PDF for the built-in viewer and return its page count."""
+    """Open a PDF and return the file path plus the number of pages."""
     p = validate_presentation(path)
     if p.suffix.lower() != ".pdf":
         raise PresentationLoadError(
