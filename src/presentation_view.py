@@ -3,10 +3,10 @@ from PIL import Image, ImageTk
 import fitz
 
 class PresentationView:
-    """Show a PDF in full-screen mode and let the user move between pages."""
+    """Display a PDF presentation in a full-screen window."""
 
     def __init__(self, root, pdf_path, on_exit, on_key, counter_visible=True):
-        # Save the PDF file and the callback functions.
+        """Open the PDF and create the presentation window."""
         self.root = root
         self.pdf_path = pdf_path
         self.on_exit = on_exit
@@ -15,22 +15,26 @@ class PresentationView:
         self.index = 0
         self.counter_visible = counter_visible
 
-        # Create the full-screen viewer window.
+        # Create a full-screen window for the PDF pages.
         self.window = tk.Toplevel(root)
         self.window.configure(bg="black")
         self.window.attributes("-fullscreen", True)
+        # Send Escape to the app so it can exit the presentation.
         self.window.bind("<Escape>", lambda e: self.on_key("ESCAPE"))
         self.window.bind("<Key>", self._key)
         self.window.bind("<Configure>", lambda e: self._render())
 
+        # This label displays the current PDF page as an image.
         self.image_label = tk.Label(self.window, bg="black")
         self.image_label.pack(fill="both", expand=True)
 
+        # Show the current page number when the page counter is enabled.
         self.counter = tk.Label(self.window, bg="#111827", fg="white",
                                 font=("Segoe UI", 15), padx=12, pady=6)
         if counter_visible:
             self.counter.place(relx=0.98, rely=0.03, anchor="ne")
 
+        # Show the keyboard shortcuts at the bottom of the window.
         self.help_label = tk.Label(self.window, bg="#111827", fg="white",
                                    text="← Previous   → Next   P Pause   H Help   Esc Exit",
                                    font=("Segoe UI", 12), padx=12, pady=6)
@@ -41,11 +45,11 @@ class PresentationView:
 
     @property
     def total(self):
-        """Return the number of pages in the PDF."""
+        """Return the total number of pages in the PDF."""
         return len(self.doc)
 
     def _key(self, event):
-        """Handle keyboard shortcuts for the PDF viewer."""
+        """Handle keyboard shortcuts for changing or controlling the presentation."""
         key = event.keysym.lower()
         if key in ("right", "space", "pagedown"):
             self.on_key("NEXT")
@@ -57,7 +61,7 @@ class PresentationView:
             self.help_label.place(relx=0.02, rely=0.97, anchor="sw")
 
     def next(self):
-        """Move to the next page if there is one."""
+        """Move to the next PDF page when one is available."""
         if self.index < self.total - 1:
             self.index += 1
             self._render()
@@ -65,7 +69,7 @@ class PresentationView:
         return False
 
     def previous(self):
-        """Move to the previous page if there is one."""
+        """Move to the previous PDF page when one is available."""
         if self.index > 0:
             self.index -= 1
             self._render()
@@ -79,11 +83,13 @@ class PresentationView:
         width = max(320, self.window.winfo_width())
         height = max(240, self.window.winfo_height())
         try:
+            # Load the current page and size it to fit the presentation window.
             page = self.doc.load_page(self.index)
             rect = page.rect
             scale = min((width - 24) / rect.width, (height - 70) / rect.height)
             pix = page.get_pixmap(matrix=fitz.Matrix(scale, scale), alpha=False)
-            image = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+            # Convert the rendered PDF page into an image Tkinter can display.
+            image = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
             self._photo = ImageTk.PhotoImage(image)
             self.image_label.configure(image=self._photo)
             self.counter.configure(text=f"Slide {self.index + 1} / {self.total}")
@@ -91,7 +97,7 @@ class PresentationView:
             self.image_label.configure(text=f"Could not render slide: {exc}", fg="white")
 
     def close(self):
-        """Close the PDF window and release the document."""
+        """Close the PDF document and destroy the presentation window."""
         try:
             self.doc.close()
         except Exception:

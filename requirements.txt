@@ -1,7 +1,14 @@
+# OpenCV lets the app read webcam video and process camera images.
 opencv-python>=4.8,<5
+# MediaPipe finds and tracks hands in the camera video.
 mediapipe==0.10.21
+# Pillow helps the app display images in its window.
 Pillow>=10.0
+# PyMuPDF opens PDF files and turns their pages into images.
 PyMuPDF>=1.24,<2
+# python-pptx provides tools for working with PowerPoint files.
 python-pptx>=0.6.23
+# NumPy supports numerical work used by image and hand-tracking libraries.
 numpy>=1.24,<2
+# pywin32 lets Python control PowerPoint on Windows.
 pywin32>=306
